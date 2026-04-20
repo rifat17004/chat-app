@@ -1,4 +1,7 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Send, LogOut, MoreVertical, MessageCircle, UserPlus, Lock, Check, CheckCheck } from 'lucide-react';
+import { auth } from '../firebase';
 
 const formatLastSeen = (dateString) => {
   if (!dateString) return 'Offline';
