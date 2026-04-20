@@ -1,7 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Send, LogOut, MoreVertical, MessageCircle, UserPlus, Lock } from 'lucide-react';
-import { auth } from '../firebase';
+import { Search, Send, LogOut, MoreVertical, MessageCircle, UserPlus, Lock, Check, CheckCheck } from 'lucide-react';
+
+const formatLastSeen = (dateString) => {
+  if (!dateString) return 'Offline';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.round(diffMs / 60000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min ago`;
+  if (diffMins < 1440) return `${Math.round(diffMins / 60)} hrs ago`;
+  return date.toLocaleDateString();
+};
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import io from 'socket.io-client';
 import { 
@@ -63,6 +73,23 @@ const ChatDashboard = () => {
 
         socketRef.current.on('message_sent', (msg) => {
           handleIncomingMessage(msg); // Echo back to sender
+        });
+
+        // Listen for user status changes
+        socketRef.current.on('user_status_change', ({ uid, isOnline, lastActive }) => {
+          setFriends(prev => prev.map(f => f.id === uid ? { ...f, isOnline, lastActive } : f));
+          setActiveFriend(prev => prev?.id === uid ? { ...prev, isOnline, lastActive } : prev);
+        });
+
+        // Listen for read receipts
+        socketRef.current.on('messages_read', ({ readerId }) => {
+          setMessages(prev => {
+            const chatMessages = prev[readerId] || [];
+            return {
+              ...prev,
+              [readerId]: chatMessages.map(m => (m.senderId === user.uid ? { ...m, read: true } : m))
+            };
+          });
         });
 
         await fetchFriends(user.uid);
@@ -199,6 +226,7 @@ const ChatDashboard = () => {
               _id: msg._id,
               text: decryptedText,
               senderId: msg.senderId,
+              read: msg.read || false,
               timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
           } catch (decErr) {
@@ -207,6 +235,7 @@ const ChatDashboard = () => {
               _id: msg._id,
               text: "🔒 [Message could not be decrypted]",
               senderId: msg.senderId,
+              read: msg.read || false,
               timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             });
           }
@@ -216,6 +245,17 @@ const ChatDashboard = () => {
           ...prev,
           [friend.id]: decryptedHistory
         }));
+
+        // Mark messages as read if there are unread messages from them
+        const hasUnread = encryptedHistory.some(m => m.senderId === friend.id && !m.read);
+        if (hasUnread && socketRef.current) {
+          socketRef.current.emit('mark_read', { currentUserId: currentUser.uid, chatFriendId: friend.id });
+          // Optimistically update local state for messages sent by them
+          setMessages(prev => ({
+            ...prev,
+            [friend.id]: prev[friend.id].map(m => m.senderId === friend.id ? { ...m, read: true } : m)
+          }));
+        }
       }
     } catch (err) {
       console.error("Failed to load history", err);
@@ -252,6 +292,7 @@ const ChatDashboard = () => {
         _id: msg._id,
         text: decryptedText,
         senderId: msg.senderId,
+        read: msg.read || false,
         timestamp: new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -259,6 +300,15 @@ const ChatDashboard = () => {
         ...prev,
         [chatFriendId]: [...(prev[chatFriendId] || []), displayMsg]
       }));
+
+      // If we received a message from the active friend, mark it as read immediately
+      if (!isMe && activeFriend?.id === msg.senderId && socketRef.current) {
+        socketRef.current.emit('mark_read', { currentUserId: user.uid, chatFriendId: msg.senderId });
+        setMessages(prev => ({
+          ...prev,
+          [chatFriendId]: prev[chatFriendId].map(m => m.senderId === msg.senderId ? { ...m, read: true } : m)
+        }));
+      }
     } catch (err) {
       console.error("Failed to decrypt incoming live message", err);
     }
@@ -459,7 +509,9 @@ const ChatDashboard = () => {
                 <li key={friend.id}>
                   <a className={`flex items-center gap-4 py-3 rounded-xl ${activeFriend?.id === friend.id ? 'active' : ''}`}
                      onClick={() => setActiveFriend(friend)}>
-                    <div className="avatar"><div className="w-12 rounded-full"><img src={friend.avatar} alt="avatar" /></div></div>
+                    <div className={`avatar ${friend.isOnline ? 'online' : ''}`}>
+                      <div className="w-12 rounded-full"><img src={friend.avatar} alt="avatar" /></div>
+                    </div>
                     <div className="flex flex-col flex-1">
                       <div className="font-semibold truncate">{friend.name}</div>
                       <div className="text-xs opacity-70 truncate">{friend.email}</div>
@@ -490,10 +542,16 @@ const ChatDashboard = () => {
                 <button className="btn btn-ghost btn-circle md:hidden" onClick={() => setActiveFriend(null)}>
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <div className="avatar"><div className="w-10 rounded-full border border-base-300"><img src={activeFriend.avatar} alt="avatar" /></div></div>
+                <div className={`avatar ${activeFriend.isOnline ? 'online' : ''}`}>
+                  <div className="w-10 rounded-full border border-base-300"><img src={activeFriend.avatar} alt="avatar" /></div>
+                </div>
                 <div>
                   <h3 className="font-bold">{activeFriend.name}</h3>
-                  <div className="text-xs opacity-70 flex items-center gap-1"><Lock size={10}/> E2E Encrypted</div>
+                  <div className="text-xs opacity-70 flex items-center gap-1">
+                    {activeFriend.isOnline ? <span className="text-success font-semibold">Online</span> : <span>Last seen {formatLastSeen(activeFriend.lastActive)}</span>}
+                    <span className="mx-1">•</span>
+                    <Lock size={10}/> E2E Encrypted
+                  </div>
                 </div>
               </div>
             </div>
@@ -516,6 +574,11 @@ const ChatDashboard = () => {
                       <div className={`chat-bubble ${isMe ? 'chat-bubble-primary' : ''}`}>
                         {msg.text}
                       </div>
+                      {isMe && (
+                        <div className="chat-footer opacity-50 mt-1 flex items-center gap-1">
+                          {msg.read ? <CheckCheck size={14} className="text-info" /> : <Check size={14} />}
+                        </div>
+                      )}
                     </div>
                   );
                 })

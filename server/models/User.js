@@ -35,6 +35,14 @@ const UserSchema = new mongoose.Schema({
   },
   keyIv: {
     type: String, // Initialization vector used for encrypting the private key
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now
+  },
+  isOnline: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

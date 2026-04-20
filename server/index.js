@@ -47,9 +47,21 @@ io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
   // When a user logs in, they register their UID
-  socket.on('register', (uid) => {
+  socket.on('register', async (uid) => {
     connectedUsers.set(uid, socket.id);
     console.log(`User ${uid} registered to socket ${socket.id}`);
+    
+    // Update online status in DB
+    try {
+      await User.findOneAndUpdate(
+        { firebaseUid: uid },
+        { isOnline: true, lastActive: new Date() }
+      );
+      // Broadcast status change to all connected clients
+      io.emit('user_status_change', { uid, isOnline: true, lastActive: new Date() });
+    } catch (err) {
+      console.error('Error updating online status:', err);
+    }
   });
 
   // When a user sends a message
@@ -72,13 +84,47 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  // Mark messages as read
+  socket.on('mark_read', async ({ currentUserId, chatFriendId }) => {
+    try {
+      // Update all unread messages sent BY the friend TO the current user
+      await Message.updateMany(
+        { senderId: chatFriendId, receiverId: currentUserId, read: false },
+        { $set: { read: true } }
+      );
+      
+      // Notify the friend that their messages were read
+      const friendSocketId = connectedUsers.get(chatFriendId);
+      if (friendSocketId) {
+        io.to(friendSocketId).emit('messages_read', { readerId: currentUserId });
+      }
+    } catch (err) {
+      console.error('Error marking messages as read:', err);
+    }
+  });
+
+  socket.on('disconnect', async () => {
     console.log('User disconnected:', socket.id);
-    // Remove from connected users (inefficient loop for prototype, better to map socket.id -> uid too)
+    // Remove from connected users
+    let disconnectedUid = null;
     for (const [uid, id] of connectedUsers.entries()) {
       if (id === socket.id) {
+        disconnectedUid = uid;
         connectedUsers.delete(uid);
         break;
+      }
+    }
+
+    if (disconnectedUid) {
+      try {
+        const lastActiveTime = new Date();
+        await User.findOneAndUpdate(
+          { firebaseUid: disconnectedUid },
+          { isOnline: false, lastActive: lastActiveTime }
+        );
+        io.emit('user_status_change', { uid: disconnectedUid, isOnline: false, lastActive: lastActiveTime });
+      } catch (err) {
+        console.error('Error updating offline status:', err);
       }
     }
   });
@@ -147,7 +193,7 @@ app.post('/api/users/add-friend', async (req, res) => {
 app.get('/api/users/:uid/friends', async (req, res) => {
   try {
     const user = await User.findOne({ firebaseUid: req.params.uid })
-      .populate('friends', 'name email firebaseUid publicKey');
+      .populate('friends', 'name email firebaseUid publicKey isOnline lastActive');
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     res.json(user.friends);
