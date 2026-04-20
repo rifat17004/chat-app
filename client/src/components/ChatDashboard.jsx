@@ -364,8 +364,11 @@ const ChatDashboard = () => {
                   placeholder="Enter PIN (min 4 chars)" 
                   className="input input-bordered w-full text-center tracking-[0.5em] font-bold text-lg" 
                   value={pin}
-                  onChange={(e) => setPin(e.target.value)}
+                  onChange={(e) => setPin(e.target.value.trim())}
                   maxLength={12}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
                 />
               </div>
               <button type="submit" className="btn btn-primary w-full">
