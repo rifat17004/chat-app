@@ -142,7 +142,8 @@ const ChatDashboard = () => {
           setMyKeys({ privateKey, publicKey });
           setIsLocked(false);
         } catch (decryptErr) {
-          setPinError('Incorrect PIN. Could not unlock messages.');
+          console.error("Decryption Error:", decryptErr);
+          setPinError(`Incorrect PIN. Error: ${decryptErr.message || decryptErr.name || 'Unknown'}`);
         }
       }
     } catch (err) {
