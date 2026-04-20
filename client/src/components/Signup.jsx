@@ -26,7 +26,7 @@ const Signup = () => {
       await updateProfile(user, { displayName: name });
 
       // 2. Sync user to MongoDB backend
-      const response = await fetch('http://localhost:5001/api/auth/sync', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

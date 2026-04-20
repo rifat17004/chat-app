@@ -52,7 +52,7 @@ const ChatDashboard = () => {
         setCurrentUser(user);
         
         // Connect Socket
-        socketRef.current = io('http://localhost:5001');
+        socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5001');
         socketRef.current.emit('register', user.uid);
 
         // Listen for incoming messages
@@ -117,7 +117,7 @@ const ChatDashboard = () => {
         const { encryptedPrivateKeyBase64, ivBase64 } = await encryptPrivateKey(keyPair.privateKey, aesPinKey);
         const publicKeyBase64 = await exportPublicKey(keyPair.publicKey);
 
-        await fetch('http://localhost:5001/api/keys/save', {
+        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/keys/save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -133,7 +133,7 @@ const ChatDashboard = () => {
         setNeedsSetup(false);
       } else {
         // Returning user: Fetch encrypted key, decrypt it
-        const res = await fetch(`http://localhost:5001/api/keys/${currentUser.uid}`);
+        const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/keys/${currentUser.uid}`);
         const data = await res.json();
 
         try {
@@ -154,7 +154,7 @@ const ChatDashboard = () => {
   // --- FRIENDS & MESSAGES LOGIC ---
   const fetchFriends = async (uid) => {
     try {
-      const res = await fetch(`http://localhost:5001/api/users/${uid}/friends`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/users/${uid}/friends`);
       if (res.ok) {
         const data = await res.json();
         const friendsWithAvatars = data.map(f => ({
@@ -172,7 +172,7 @@ const ChatDashboard = () => {
   const loadChatHistory = async (friend) => {
     if (isLocked || !myKeys) return;
     try {
-      const res = await fetch(`http://localhost:5001/api/messages/${currentUser.uid}/${friend.id}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/messages/${currentUser.uid}/${friend.id}`);
       if (res.ok) {
         const encryptedHistory = await res.json();
         const decryptedHistory = [];
@@ -301,7 +301,7 @@ const ChatDashboard = () => {
       setSearchError("Already in friends list."); return;
     }
     try {
-      const res = await fetch(`http://localhost:5001/api/users/search?email=${encodeURIComponent(searchQuery)}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/users/search?email=${encodeURIComponent(searchQuery)}`);
       const data = await res.json();
       if (res.ok) {
         setSearchResult({ ...data, id: data.firebaseUid, avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${data.name}` });
@@ -316,7 +316,7 @@ const ChatDashboard = () => {
   const handleAddFriend = async () => {
     if (!searchResult) return;
     try {
-      const res = await fetch('http://localhost:5001/api/users/add-friend', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/users/add-friend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ currentUserId: currentUser.uid, targetUserId: searchResult._id })
