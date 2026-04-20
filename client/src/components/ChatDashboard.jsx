@@ -69,7 +69,11 @@ const ChatDashboard = () => {
         
         // Connect Socket
         socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5001');
-        socketRef.current.emit('register', user.uid);
+        
+        // Register immediately on connection and any future reconnections (important for mobile)
+        socketRef.current.on('connect', () => {
+          socketRef.current.emit('register', user.uid);
+        });
 
         // Listen for incoming messages
         socketRef.current.on('receive_message', (msg) => {
