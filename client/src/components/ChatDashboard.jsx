@@ -53,11 +53,13 @@ const ChatDashboard = () => {
   const messagesEndRef = useRef(null);
   const myKeysRef = useRef(null);
   const currentUserRef = useRef(null);
+  const activeFriendRef = useRef(null);
 
   useEffect(() => {
     myKeysRef.current = myKeys;
     currentUserRef.current = currentUser;
-  }, [myKeys, currentUser]);
+    activeFriendRef.current = activeFriend;
+  }, [myKeys, currentUser, activeFriend]);
 
   // Initialize Socket and Auth
   useEffect(() => {
@@ -304,7 +306,8 @@ const ChatDashboard = () => {
       }));
 
       // If we received a message from the active friend, mark it as read immediately
-      if (!isMe && activeFriend?.id === msg.senderId && socketRef.current) {
+      const currentActiveFriend = activeFriendRef.current;
+      if (!isMe && currentActiveFriend?.id === msg.senderId && socketRef.current) {
         socketRef.current.emit('mark_read', { currentUserId: user.uid, chatFriendId: msg.senderId });
         setMessages(prev => ({
           ...prev,
