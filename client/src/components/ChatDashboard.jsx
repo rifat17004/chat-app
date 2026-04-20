@@ -241,21 +241,20 @@ const ChatDashboard = () => {
           }
         }
         
-        setMessages(prev => ({
-          ...prev,
-          [friend.id]: decryptedHistory
-        }));
-
         // Mark messages as read if there are unread messages from them
         const hasUnread = encryptedHistory.some(m => m.senderId === friend.id && !m.read);
         if (hasUnread && socketRef.current) {
           socketRef.current.emit('mark_read', { currentUserId: currentUser.uid, chatFriendId: friend.id });
-          // Optimistically update local state for messages sent by them
-          setMessages(prev => ({
-            ...prev,
-            [friend.id]: prev[friend.id].map(m => m.senderId === friend.id ? { ...m, read: true } : m)
-          }));
+          // Optimistically update local array before setting state
+          decryptedHistory.forEach(m => {
+            if (m.senderId === friend.id) m.read = true;
+          });
         }
+
+        setMessages(prev => ({
+          ...prev,
+          [friend.id]: decryptedHistory
+        }));
       }
     } catch (err) {
       console.error("Failed to load history", err);
