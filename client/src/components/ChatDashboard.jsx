@@ -33,6 +33,7 @@ const ChatDashboard = () => {
   const [myKeys, setMyKeys] = useState(null); // { privateKey, publicKey }
   const [pinError, setPinError] = useState('');
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [checkingKeys, setCheckingKeys] = useState(true);
   
   const navigate = useNavigate();
   const socketRef = useRef();
@@ -86,7 +87,7 @@ const ChatDashboard = () => {
   // --- ENCRYPTION & PIN SETUP ---
   const checkKeyStatus = async (uid) => {
     try {
-      const res = await fetch(`http://localhost:5001/api/keys/${uid}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/keys/${uid}`);
       if (res.ok) {
         const data = await res.json();
         if (!data.publicKey) {
@@ -97,6 +98,9 @@ const ChatDashboard = () => {
       }
     } catch (err) {
       console.error("Failed to check keys");
+      setNeedsSetup(true);
+    } finally {
+      setCheckingKeys(false);
     }
   };
 
@@ -336,7 +340,7 @@ const ChatDashboard = () => {
     navigate('/login');
   };
 
-  if (loading || !currentUser) {
+  if (loading || checkingKeys || !currentUser) {
     return <div className="min-h-screen bg-base-200 flex items-center justify-center"><span className="loading loading-spinner"></span></div>;
   }
 
