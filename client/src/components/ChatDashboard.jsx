@@ -37,6 +37,13 @@ const ChatDashboard = () => {
   const navigate = useNavigate();
   const socketRef = useRef();
   const messagesEndRef = useRef(null);
+  const myKeysRef = useRef(null);
+  const currentUserRef = useRef(null);
+
+  useEffect(() => {
+    myKeysRef.current = myKeys;
+    currentUserRef.current = currentUser;
+  }, [myKeys, currentUser]);
 
   // Initialize Socket and Auth
   useEffect(() => {
@@ -218,11 +225,14 @@ const ChatDashboard = () => {
   }, [activeFriend, isLocked]);
 
   const handleIncomingMessage = async (msg) => {
-    // Determine which chat this belongs to
-    const isMe = msg.senderId === currentUser.uid;
-    const chatFriendId = isMe ? msg.receiverId : msg.senderId;
+    const currentKeys = myKeysRef.current;
+    const user = currentUserRef.current;
+    
+    if (!currentKeys || !user) return;
 
-    if (!myKeys) return;
+    // Determine which chat this belongs to
+    const isMe = msg.senderId === user.uid;
+    const chatFriendId = isMe ? msg.receiverId : msg.senderId;
 
     try {
       const aesKeyToDecrypt = isMe ? msg.senderEncryptedAesKey : msg.receiverEncryptedAesKey;
@@ -230,7 +240,7 @@ const ChatDashboard = () => {
         msg.encryptedContent,
         msg.iv,
         aesKeyToDecrypt,
-        myKeys.privateKey
+        currentKeys.privateKey
       );
 
       const displayMsg = {
