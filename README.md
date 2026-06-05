@@ -2,6 +2,17 @@
 
 A full-stack, real-time messaging application featuring military-grade **End-to-End Encryption (E2EE)**, built with the MERN stack (MongoDB, Express, React, Node.js) and Firebase Authentication.
 
+
+live link: https://chat-app-alpha-ochre-96.vercel.app/login
+This is a end to end web chat application. 
+where massage will be encrypted in different layers.
+data base is fully encrypted as well.
+login with the credentials and search the mail emon110044@gmail.com
+and add me as a friend.
+this app is still in development process.
+your contribution will be helpful to grow.
+thank you
+
 ## Features
 - **End-to-End Encryption:** Messages are encrypted in the browser using the Web Crypto API (RSA-OAEP & AES-GCM). The server only stores unreadable ciphertexts.
 - **Recovery PIN System:** Private keys are securely locked using a user-defined PIN and synced to the cloud, preventing data loss across devices.
